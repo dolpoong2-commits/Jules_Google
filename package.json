@@ -1,0 +1,44 @@
+{
+  "name": "esp32-ai-toolkit",
+  "version": "1.0.0",
+  "description": "An integrated desktop application for AI model development for ESP32 firmware.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "react-start": "cd frontend && npm start",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.example.esp32aitoolkit",
+    "files": [
+      "main.js",
+      "frontend/build/**/*",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dolpoong2-commits/Jules_Google.git"
+  },
+  "keywords": [
+    "esp32",
+    "tinyml",
+    "ai",
+    "electron"
+  ],
+  "author": "Jules",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dolpoong2-commits/Jules_Google/issues"
+  },
+  "homepage": "https://github.com/dolpoong2-commits/Jules_Google#readme",
+  "devDependencies": {
+    "electron": "^38.1.2",
+    "electron-builder": "^26.0.12"
+  }
+}

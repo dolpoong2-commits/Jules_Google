@@ -1,0 +1,22 @@
+requests
+beautifulsoup4
+PyGithub
+fastapi
+uvicorn
+# For Data Processing & QA
+pylint
+spdx-tools
+PyMuPDF
+pytesseract
+Pillow
+pandas
+python-dotenv
+truffleHog
+# For AI Model Training
+torch
+transformers
+datasets
+accelerate
+peft
+bitsandbytes
+scikit-learn
