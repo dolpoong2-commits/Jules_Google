@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 AI 데이터 수집기</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
+</head>
+<body class="theme-sunrising">
+
+    <div class="container">
+        <header class="header">
+            <h1>ESP32 AI 데이터 수집기</h1>
+            <div class="theme-selector">
+                <label for="theme">테마 선택:</label>
+                <select id="theme">
+                    <option value="sunrising">썬라이징</option>
+                    <option value="dark">다크</option>
+                    <option value="light">라이트</option>
+                    <option value="retro">레트로</option>
+                    <option value="cyberpunk">사이버펑크</option>
+                    <option value="minimalist">미니멀리즘</option>
+                </select>
+            </div>
+        </header>
+
+        <main>
+            <section class="settings-panel">
+                <h2><span class="icon">⚙️</span> 설정</h2>
+                <form id="target-form">
+                    <div class="form-group">
+                        <label for="url">URL 또는 GitHub 레포지토리:</label>
+                        <input type="text" id="url" name="url" placeholder="https://github.com/espressif/esp-idf" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="type">수집 방식:</label>
+                        <select id="type" name="type">
+                            <option value="headless">일반 웹사이트 (헤드리스 브라우저)</option>
+                            <option value="github_api">GitHub 레포지토리 (API)</option>
+                        </select>
+                    </div>
+                     <div class="form-group">
+                        <label for="search_keyword">검색어 (선택 사항):</label>
+                        <input type="text" id="search_keyword" name="search_keyword" placeholder="예: esp32 project">
+                    </div>
+                    <button type="submit" class="button-primary">대상 추가</button>
+                </form>
+
+                <h3>대상 목록</h3>
+                <ul id="target-list">
+                    <!-- 대상 목록이 여기에 동적으로 추가됩니다. -->
+                </ul>
+            </section>
+
+            <section class="action-panel">
+                <div class="form-group">
+                    <label for="save-path">저장 폴더 경로:</label>
+                    <input type="text" id="save-path" name="save-path" value="collected_data/" placeholder="/path/to/save/files">
+                </div>
+                <button id="scrape-button" class="button-primary">수집 시작</button>
+            </section>
+
+            <section class="results-panel">
+                <h2><span class="icon">📊</span> 수집 결과</h2>
+                <div id="status-area">
+                    <p>상태: 대기 중</p>
+                </div>
+                <ul id="result-list">
+                    <!-- 수집 결과가 여기에 동적으로 추가됩니다. -->
+                </ul>
+                 <button id="download-button" class="button-primary" disabled>선택 항목 다운로드</button>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

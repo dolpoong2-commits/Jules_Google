@@ -1,0 +1,166 @@
+/* --- Base Styles --- */
+:root {
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --border-radius: 8px;
+    --spacing: 1rem;
+}
+
+body {
+    font-family: var(--font-family);
+    margin: 0;
+    padding: var(--spacing);
+    transition: background-color 0.3s, color 0.3s;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing);
+}
+
+header.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing);
+    border-radius: var(--border-radius);
+}
+
+h1, h2, h3 {
+    margin-top: 0;
+}
+
+h2 .icon {
+    margin-right: 0.5rem;
+}
+
+section {
+    padding: var(--spacing);
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+input[type="text"], select {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid;
+    box-sizing: border-box; /* Important for padding and width */
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    padding: 0.5rem;
+    border-bottom: 1px solid;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.button-primary {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.button-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* --- Sunrising Theme (Default) --- */
+body.theme-sunrising {
+    background-color: #FDF6E3; /* Solarized Light Base */
+    color: #657B83; /* Solarized Text */
+}
+.theme-sunrising header.header, .theme-sunrising section {
+    background-color: #F6F1E3;
+    border: 1px solid #EEE8D5;
+}
+.theme-sunrising h1 { color: #D33682; } /* Magenta */
+.theme-sunrising .button-primary { background-color: #268BD2; color: white; } /* Blue */
+.theme-sunrising .button-primary:hover { background-color: #2AA198; } /* Cyan */
+.theme-sunrising input, .theme-sunrising select { background-color: #fff; border-color: #EEE8D5; color: #586E75; }
+.theme-sunrising li { border-color: #EEE8D5; }
+
+/* --- Dark Mode Theme --- */
+body.theme-dark {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+.theme-dark header.header, .theme-dark section { background-color: #1e1e1e; border: 1px solid #333; }
+.theme-dark h1 { color: #bb86fc; } /* Light Purple */
+.theme-dark .button-primary { background-color: #03dac6; color: #121212; } /* Teal */
+.theme-dark .button-primary:hover { background-color: #3700b3; color: white; } /* Deep Purple */
+.theme-dark input, .theme-dark select { background-color: #333; border-color: #555; color: #e0e0e0; }
+.theme-dark li { border-color: #333; }
+
+/* --- Light Mode Theme --- */
+body.theme-light {
+    background-color: #f4f4f8;
+    color: #212121;
+}
+.theme-light header.header, .theme-light section { background-color: #ffffff; border: 1px solid #ddd; }
+.theme-light h1 { color: #007bff; }
+.theme-light .button-primary { background-color: #007bff; color: white; }
+.theme-light .button-primary:hover { background-color: #0056b3; }
+.theme-light input, .theme-light select { background-color: #fff; border-color: #ccc; color: #333; }
+.theme-light li { border-color: #eee; }
+
+/* --- Retro Terminal Theme --- */
+body.theme-retro {
+    background-color: #000000;
+    color: #00FF00;
+    font-family: 'Courier New', Courier, monospace;
+}
+.theme-retro header.header, .theme-retro section { background-color: #0a0a0a; border: 1px solid #00FF00; }
+.theme-retro h1 { color: #00FF00; text-shadow: 0 0 5px #00FF00; }
+.theme-retro .button-primary { background-color: #00FF00; color: #000000; border: 1px solid #00FF00; }
+.theme-retro .button-primary:hover { background-color: #000000; color: #00FF00; }
+.theme-retro input, .theme-retro select { background-color: #000; border-color: #00FF00; color: #00FF00; }
+.theme-retro li { border-color: #00FF00; }
+
+/* --- Cyberpunk Theme --- */
+body.theme-cyberpunk {
+    background-color: #0d0221;
+    color: #00f0ff;
+    font-family: 'Orbitron', sans-serif; /* A futuristic font */
+}
+.theme-cyberpunk header.header, .theme-cyberpunk section { background-color: rgba(16, 2, 51, 0.8); border: 1px solid #ff00ff; box-shadow: 0 0 10px #ff00ff; }
+.theme-cyberpunk h1 { color: #ff00ff; text-shadow: 0 0 7px #ff00ff; }
+.theme-cyberpunk .button-primary { background-color: #ff00ff; color: #fff; border: 1px solid #00f0ff; }
+.theme-cyberpunk .button-primary:hover { background-color: #00f0ff; color: #0d0221; }
+.theme-cyberpunk input, .theme-cyberpunk select { background-color: #1a033e; border-color: #ff00ff; color: #00f0ff; }
+.theme-cyberpunk li { border-color: #ff00ff; }
+
+/* --- Minimalist Theme --- */
+body.theme-minimalist {
+    background-color: #FFFFFF;
+    color: #000000;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+.theme-minimalist header.header, .theme-minimalist section { background-color: #fff; border: 1px solid #eee; box-shadow: none; }
+.theme-minimalist h1 { color: #333; }
+.theme-minimalist .button-primary { background-color: #333; color: #fff; border-radius: 0; }
+.theme-minimalist .button-primary:hover { background-color: #555; }
+.theme-minimalist input, .theme-minimalist select { background-color: #fafafa; border-color: #ddd; color: #000; border-radius: 0; }
+.theme-minimalist li { border-color: #f0f0f0; }
