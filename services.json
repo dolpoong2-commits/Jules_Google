@@ -1,0 +1,23 @@
+[
+  {
+    "name": "ChatGPT",
+    "url": "https://chat.openai.com/",
+    "inputSelectors": ["textarea", "div[contenteditable='true']"],
+    "send": "enter",
+    "lastMsgSelectors": ["div[data-message-author-role='assistant']", "main .markdown"]
+  },
+  {
+    "name": "Claude",
+    "url": "https://claude.ai/chat",
+    "inputSelectors": ["textarea", "div[contenteditable='true']"],
+    "send": "enter",
+    "lastMsgSelectors": ["[data-testid='message']"]
+  },
+  {
+    "name": "Gemini",
+    "url": "https://gemini.google.com/app",
+    "inputSelectors": ["textarea", "div[contenteditable='true']"],
+    "send": "enter",
+    "lastMsgSelectors": ["cib-serp .response", ".markdown"]
+  }
+]
