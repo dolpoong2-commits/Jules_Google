@@ -108,6 +108,8 @@ UpdateStatus() {
             statusText.Text := "좌표 설정 필요"
             statusText.Opt("c" . (currentTheme == "Light" ? "DD0000" : (currentTheme == "Dark" || currentTheme == "Cyberpunk" ? "FF5555" : "B22222")))
         }
+    } catch {
+        ; GUI가 아직 완전히 준비되지 않았을 수 있으므로 오류 무시
     }
 }
 ShowSettingsGui(*) {
@@ -396,7 +398,9 @@ ApplyTheme(*) {
                 case "Button", "DropDownList":
                     ctrl.Opt("c" . theme.Text)
             }
-        } catch {}
+        } catch {
+            ; 일부 컨트롤은 색상 변경을 지원하지 않을 수 있으므로 오류 무시
+        }
     }
     UpdateStatus()
 }
