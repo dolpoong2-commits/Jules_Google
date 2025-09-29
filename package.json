@@ -1,24 +1,15 @@
 {
-  "name": "app",
-  "version": "1.0.0",
-  "description": "Jules Backup",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/dolpoong2-commits/Jules_Google.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "name": "multi-chat-orchestrator",
+  "version": "1.1.0",
   "type": "module",
-  "bugs": {
-    "url": "https://github.com/dolpoong2-commits/Jules_Google/issues"
+  "scripts": {
+    "start": "node debate_orchestrator.js",
+    "dry": "node debate_orchestrator.js --dry-run",
+    "install:pw": "npx playwright install chromium",
+    "ui": "node ui-server.js"
   },
-  "homepage": "https://github.com/dolpoong2-commits/Jules_Google#readme",
   "dependencies": {
+    "express": "^4.19.2",
     "playwright": "^1.55.1"
   }
 }

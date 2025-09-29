@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Orchestrator UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:ui-sans-serif,system-ui,Segoe UI,Apple SD Gothic Neo,Malgun Gothic,sans-serif;margin:20px;line-height:1.4}
+    h2{margin-top:28px}
+    .card{border:1px solid #ddd;border-radius:12px;padding:16px;margin-top:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    label{font-size:14px;color:#555}
+    select,input,textarea,button{font-size:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #eee;padding:8px}
+    th{background:#fafafa;text-align:left}
+    .btn{padding:8px 12px;border:1px solid #bbb;border-radius:8px;background:#fff;cursor:pointer}
+    .btn.primary{background:#0b5cff;color:#fff;border-color:#0b5cff}
+    .muted{color:#666;font-size:13px}
+  </style>
+</head>
+<body>
+  <h1>Playwright Debate Orchestrator — 설정 UI</h1>
+
+  <!-- 시나리오 선택 -->
+  <div class="card">
+    <h2>① 시나리오 선택</h2>
+    <div class="row">
+      <label for="scenarioSel">시나리오:</label>
+      <select id="scenarioSel"></select>
+      <button class="btn primary" id="saveScenario">선택 저장</button>
+      <span class="muted">※ seed.md의 &lt;선택&gt; 값을 갱신합니다.</span>
+    </div>
+    <div id="scenarioInfo" class="muted" style="margin-top:6px"></div>
+  </div>
+
+  <!-- 서비스 관리 -->
+  <div class="card">
+    <h2>② 서비스(대화창) 관리 (최대 8개)</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn" id="addRow">행 추가</button>
+      <button class="btn primary" id="saveServices">저장</button>
+      <span class="muted">URL만 입력해도 기본 셀렉터가 채워집니다.</span>
+    </div>
+    <table id="svcTable">
+      <thead>
+        <tr>
+          <th style="width:18%">이름</th>
+          <th>URL</th>
+          <th style="width:14%">채널</th>
+          <th style="width:26%">프로필 경로</th>
+          <th style="width:10%">삭제</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- 시나리오 추가 -->
+  <div class="card">
+    <h2>③ 새 시나리오 추가</h2>
+    <div class="row">
+      <label>컨텍스트</label>
+    </div>
+    <textarea id="scCtx" rows="4" style="width:100%;"></textarea>
+    <div class="row" style="margin-top:8px">
+      <label>요청</label>
+    </div>
+    <textarea id="scReq" rows="4" style="width:100%;"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn primary" id="addScenario">추가</button>
+      <span class="muted">※ seed.md 끝에 &lt;시나리오_N_*&gt; 블록이 자동 추가됩니다.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>실행</h2>
+    <p class="muted">설정 저장 후, 터미널에서 실행:</p>
+    <pre>npm run dry    # 프롬프트 미리보기
+npm start      # 실제 실행</pre>
+  </div>
+
+  <script>
+    async function loadScenario() {
+      const r = await fetch('/api/seed/selection'); const data = await r.json();
+      const sel = document.getElementById('scenarioSel'); sel.innerHTML = '';
+      data.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id; opt.textContent = `${o.id} — ${o.contextFirstLine || o.title}`;
+        if (o.id === data.selectedId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      document.getElementById('scenarioInfo').textContent =
+        `현재 선택: ${data.selectedId} (시나리오 수: ${data.options.length})`;
+    }
+    async function saveScenario() {
+      const id = +document.getElementById('scenarioSel').value;
+      const r = await fetch('/api/seed/selection', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ selectedId: id })});
+      const data = await r.json();
+      if (data.ok) { alert('선택 저장 완료'); loadScenario(); }
+      else { alert('오류: ' + (data.error || 'unknown')); }
+    }
+
+    function rowTemplate(svc={}) {
+      return `<tr>
+        <td><input value="${svc.name||''}" placeholder="ChatGPT 등" /></td>
+        <td><input value="${svc.url||''}" placeholder="https://..." style="width:100%"/></td>
+        <td>
+          <select>
+            <option value="" ${!svc.channel?'selected':''}>기본</option>
+            <option value="chromium" ${svc.channel==='chromium'?'selected':''}>chromium</option>
+            <option value="chrome" ${svc.channel==='chrome'?'selected':''}>chrome</option>
+          </select>
+        </td>
+        <td><input value="${svc.profileDir||''}" placeholder="C:\\Users\\me\\...\\Default"/></td>
+        <td><button class="btn del">삭제</button></td>
+      </tr>`;
+    }
+    async function loadServices() {
+      const r = await fetch('/api/services'); const arr = await r.json();
+      const tb = document.querySelector('#svcTable tbody'); tb.innerHTML = '';
+      (arr||[]).forEach(s=> tb.insertAdjacentHTML('beforeend', rowTemplate(s)));
+      attachRowHandlers();
+    }
+    function attachRowHandlers(){
+      document.querySelectorAll('.del').forEach(btn=>{
+        btn.onclick = (e)=>{ e.target.closest('tr').remove(); };
+      });
+    }
+    function collectServices() {
+      const rows = [...document.querySelectorAll('#svcTable tbody tr')];
+      const data = rows.map(tr=>{
+        const [name,url,channel,profile] = [...tr.querySelectorAll('input,select')].map(i=>i.value.trim());
+        return { name, url, channel: channel||undefined, profileDir: profile||undefined };
+      }).filter(s=>s.url);
+      return data;
+    }
+    async function saveServices() {
+      const services = collectServices();
+      if (services.length < 1 || services.length > 8) {
+        alert('서비스 개수는 1~8개여야 합니다.'); return;
+      }
+      const r = await fetch('/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(services) });
+      const data = await r.json();
+      if (data.ok) { alert('저장 완료'); loadServices(); }
+      else { alert('오류: ' + (data.error || 'unknown')); }
+    }
+    async function addScenario() {
+      const context = document.getElementById('scCtx').value.trim();
+      const request = document.getElementById('scReq').value.trim();
+      if (!context || !request) { alert('컨텍스트/요청을 입력하세요.'); return; }
+      const r = await fetch('/api/seed/scenario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ context, request })});
+      const data = await r.json();
+      if (data.ok) { alert('시나리오 추가: #' + data.newId); document.getElementById('scCtx').value=''; document.getElementById('scReq').value=''; loadScenario(); }
+      else { alert('오류: ' + (data.error || 'unknown')); }
+    }
+
+    // 이벤트 바인딩
+    document.getElementById('saveScenario').onclick = saveScenario;
+    document.getElementById('saveServices').onclick = saveServices;
+    document.getElementById('addScenario').onclick = addScenario;
+    document.getElementById('addRow').onclick = () => {
+      const tb = document.querySelector('#svcTable tbody');
+      if (tb.children.length >= 8) return alert('최대 8개입니다.');
+      tb.insertAdjacentHTML('beforeend', rowTemplate());
+      attachRowHandlers();
+    };
+
+    // 초기 로드
+    loadScenario(); loadServices();
+  </script>
+</body>
+</html>
