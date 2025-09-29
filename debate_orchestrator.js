@@ -16,11 +16,13 @@ const TIMEOUT_SEND   = 30_000;  // 각 전송 대기
 const TIMEOUT_REPLY  = 90_000;  // 답변 수집 대기 (사이트마다 조정)
 const ROUND_PAUSE    = 3_000;   // 라운드 간 짧은 휴식
 
-// 유틸: locator 후보들 중 첫번째 존재하는 셀렉터를 찾음
+// 유틸: locator 후보들 중 첫번째 '보이는' 셀렉터를 찾음
 async function pickLocator(page, selectors) {
   for (const sel of selectors) {
-    const loc = page.locator(sel);
-    if (await loc.first().count().catch(() => 0)) return loc.first();
+    const loc = page.locator(sel).first();
+    if (await loc.isVisible().catch(() => false)) {
+      return loc;
+    }
   }
   return null;
 }
