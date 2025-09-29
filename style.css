@@ -1,0 +1,209 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+        "header header"
+        "sidebar main";
+    height: 100vh;
+}
+
+header {
+    grid-area: header;
+    background-color: #333;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.theme-switcher {
+    margin-right: 2rem;
+}
+
+aside#sidebar {
+    grid-area: sidebar;
+    background-color: #e2e2e2;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+#searchInput {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 1rem;
+    box-sizing: border-box;
+}
+
+#api-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#api-list li {
+    padding: 0.5rem;
+    cursor: pointer;
+    border-bottom: 1px solid #ccc;
+}
+
+#api-list li:hover {
+    background-color: #ddd;
+}
+
+main#main-content {
+    grid-area: main;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+h2 {
+    color: #333;
+}
+
+pre {
+    background-color: #eee;
+    padding: 1rem;
+    border-radius: 5px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Themes */
+body {
+    --bg-color: #f4f4f4;
+    --text-color: #333;
+    --header-bg: #333;
+    --header-text: white;
+    --sidebar-bg: #e2e2e2;
+    --sidebar-hover-bg: #ddd;
+    --pre-bg: #eee;
+}
+
+body.theme-black {
+    --bg-color: #222;
+    --text-color: #eee;
+    --header-bg: #111;
+    --header-text: #eee;
+    --sidebar-bg: #333;
+    --sidebar-hover-bg: #444;
+    --pre-bg: #444;
+}
+
+body.theme-sunrise {
+    --bg-color: #fdf6e3;
+    --text-color: #657b83;
+    --header-bg: #073642;
+    --header-text: #eee8d5;
+    --sidebar-bg: #eee8d5;
+    --sidebar-hover-bg: #fdf6e3;
+    --pre-bg: #eee8d5;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+header {
+    background-color: var(--header-bg);
+    color: var(--header-text);
+}
+
+aside#sidebar {
+    background-color: var(--sidebar-bg);
+}
+
+#api-list li:hover {
+    background-color: var(--sidebar-hover-bg);
+}
+
+main#main-content h2 {
+    color: var(--text-color);
+}
+
+pre {
+    background-color: var(--pre-bg);
+}
+
+/* Tool Tabs */
+#tool-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: space-around;
+    border-bottom: 1px solid #ccc;
+}
+
+#tool-list li {
+    padding: 0.5rem;
+    cursor: pointer;
+    flex-grow: 1;
+    text-align: center;
+}
+
+#tool-list li.active {
+    background-color: var(--sidebar-hover-bg);
+}
+
+/* Stock Checker */
+.stock-checker-tabs {
+    display: flex;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 1rem;
+}
+
+.stock-tab {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+.stock-tab.active {
+    background-color: var(--sidebar-hover-bg);
+    border-top: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+
+.stock-checker-form {
+    margin-bottom: 1rem;
+}
+
+#lcscPartNumberInput, #jlcpcbPartNumberInput {
+    margin-right: 0.5rem;
+    padding: 8px;
+    width: 200px;
+}
+
+#stock-results table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#stock-results th, #stock-results td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#stock-results th {
+    background-color: var(--sidebar-bg);
+}
+
+.config-note {
+    background-color: var(--sidebar-hover-bg);
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    border-radius: 5px;
+}

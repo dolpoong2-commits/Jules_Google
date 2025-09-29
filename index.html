@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyEDA API Explorer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EasyEDA API Explorer</h1>
+            <div class="theme-switcher">
+                <label for="theme-select">Theme:</label>
+                <select id="theme-select">
+                    <option value="default">Default</option>
+                    <option value="black">Black</option>
+                    <option value="sunrise">Sunrise</option>
+                </select>
+            </div>
+        </header>
+        <aside id="sidebar">
+            <nav>
+                <ul id="tool-list">
+                    <li id="api-explorer-tab" class="active">API Explorer</li>
+                    <li id="stock-checker-tab">Stock Checker</li>
+                </ul>
+            </nav>
+            <div id="api-explorer-content">
+                <input type="text" id="searchInput" placeholder="Search API...">
+                <ul id="api-list">
+                    <!-- API functions will be loaded here -->
+                </ul>
+            </div>
+        </aside>
+        <main id="main-content">
+            <div id="api-explorer-view">
+                <h2>Welcome</h2>
+                <p>Select an API function from the left to see its details.</p>
+            </div>
+            <div id="stock-checker-view" style="display: none;">
+                <div class="stock-checker-tabs">
+                    <div id="lcsc-stock-tab" class="stock-tab active">LCSC</div>
+                    <div id="jlcpcb-stock-tab" class="stock-tab">JLCPCB</div>
+                </div>
+                <div id="lcsc-stock-content">
+                    <h2>LCSC Stock Checker</h2>
+                    <p class="config-note">
+                        <strong>Note:</strong> To use the LCSC stock checker, you must add your API Key and Secret to the <code>server.js</code> file or set them as environment variables (<code>LCSC_KEY</code>, <code>LCSC_SECRET</code>) and restart the server.
+                    </p>
+                    <div class="stock-checker-form">
+                        <input type="text" id="lcscPartNumberInput" placeholder="Enter LCSC Part Number...">
+                        <button id="searchLcscStockBtn">Search</button>
+                    </div>
+                </div>
+                <div id="jlcpcb-stock-content" style="display: none;">
+                    <h2>JLCPCB Stock Checker</h2>
+                    <div class="stock-checker-form">
+                        <input type="text" id="jlcpcbPartNumberInput" placeholder="Enter JLCPCB Part Number...">
+                        <button id="searchJlcpcbStockBtn" disabled>Search (Not Implemented)</button>
+                    </div>
+                </div>
+                <div id="stock-results">
+                    <!-- Stock results will be displayed here -->
+                </div>
+                <button id="exportCsvBtn" style="display: none;">Export to CSV</button>
+            </div>
+        </main>
+    </div>
+    <script src="api.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
