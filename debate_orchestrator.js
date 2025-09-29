@@ -90,7 +90,14 @@ async function main() {
   // 1) 브라우저 준비(영구 프로필)
   await fs.mkdir(PERSIST_DIR, { recursive: true });
   const browser = await chromium.launchPersistentContext(PERSIST_DIR, {
-    headless: false, args: ["--disable-dev-shm-usage"], viewport: { width: 1400, height: 900 }
+    headless: false,
+    args: [
+      "--disable-dev-shm-usage",
+      "--disable-blink-features=AutomationControlled",
+      "--start-maximized",
+    ],
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    viewport: { width: 1400, height: 900 }
   });
 
   // 2) 탭 준비
