@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pydantic
+celery
+redis
+sqlalchemy
+kombu

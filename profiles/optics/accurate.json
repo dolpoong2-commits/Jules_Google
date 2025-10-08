@@ -1,0 +1,10 @@
+{
+  "flux": "1000lm",
+  "beam": "90°",
+  "cct": "5000K",
+  "cri": 80,
+  "emitter": "[1.2,1.2]mm",
+  "material": "PMMA(n=1.49)",
+  "dist": [50, 100, 200],
+  "planes": ["top", "45deg", "bottom"]
+}

@@ -1,0 +1,10 @@
+{
+  "resolution": [3840, 2160],
+  "engine": "CYCLES",
+  "device": "CUDA",
+  "samples": 256,
+  "denoise": true,
+  "hdr": "studio.exr",
+  "watermark": "logo.png",
+  "bg": "transparent"
+}

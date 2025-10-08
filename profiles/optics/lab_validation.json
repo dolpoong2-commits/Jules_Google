@@ -1,0 +1,9 @@
+{
+  "flux": "1200lm",
+  "beam": "60°",
+  "cct": "4000K",
+  "cri": 90,
+  "glass": "n=1.52",
+  "dist": [25, 50, 100, 200],
+  "export_report": true
+}

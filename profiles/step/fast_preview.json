@@ -1,0 +1,6 @@
+{
+  "tolerance": "0.1mm",
+  "export_mode": "single_body",
+  "suppress_unresolved": true,
+  "unit": "mm"
+}

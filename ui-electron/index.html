@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>SolidWorks All-in-One Platform</title>
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+        font-family: sans-serif;
+      }
+      #ui-container {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 10;
+        background-color: rgba(40, 40, 40, 0.8);
+        padding: 15px;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      button {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #file-path, #job-status {
+        padding: 5px;
+        background-color: #111;
+        border-radius: 4px;
+        min-height: 20px;
+        font-size: 14px;
+      }
+      #webgl-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui-container">
+      <button id="open-file-btn">1. Select File</button>
+      <div id="file-path">No file selected.</div>
+      <button id="convert-btn">2. Request STEP Conversion</button>
+      <div id="step-file-status" class="status-box">STEP file not yet created.</div>
+      <hr style="width:100%; border-color: #444;">
+      <label for="render-profile-select">3. Select Render Profile (uses STEP file above):</label>
+      <select name="profiles" id="render-profile-select">
+        <option value="draft">Draft (Eevee)</option>
+        <option value="standard" selected>Standard (Cycles)</option>
+        <option value="high_quality">High Quality (Cycles)</option>
+      </select>
+      <button id="render-btn">4. Request Render</button>
+      <hr style="width:100%; border-color: #444;">
+      <label for="optics-profile-select">5. Select Optics Profile:</label>
+      <select name="profiles" id="optics-profile-select">
+        <option value="quick_approx">Quick Approx</option>
+        <option value="accurate" selected>Accurate</option>
+        <option value="lab_validation">Lab Validation</option>
+      </select>
+      <button id="optics-btn">6. Request Optics Analysis</button>
+      <div id="job-status">Status: Idle</div>
+    </div>
+    <canvas id="webgl-canvas"></canvas>
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>

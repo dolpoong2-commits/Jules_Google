@@ -1,0 +1,8 @@
+{
+  "resolution": [1280, 720],
+  "engine": "EEVEE",
+  "samples": 64,
+  "denoise": true,
+  "camera": "iso_only",
+  "turntable": "5s@24fps"
+}

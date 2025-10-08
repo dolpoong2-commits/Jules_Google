@@ -1,0 +1,6 @@
+{
+  "tolerance": "0.001mm",
+  "healing": true,
+  "stitch_solid": true,
+  "keep_colors": true
+}

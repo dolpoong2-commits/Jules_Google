@@ -1,0 +1,9 @@
+{
+  "resolution": [1920, 1080],
+  "engine": "CYCLES",
+  "samples": 128,
+  "denoise": true,
+  "hdr": "neutral.exr",
+  "cameras": ["iso", "front", "right", "top"],
+  "turntable": "8s@30fps"
+}
