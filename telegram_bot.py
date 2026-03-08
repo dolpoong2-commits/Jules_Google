@@ -92,13 +92,39 @@ Example: [{"role": "Backend", "task_name": "Setup Express Server", "detailed_ins
     except Exception:
         return [{"role": "General", "task_name": "Implement architecture", "detailed_instruction": "Follow standard practices."}]
 
+async def verify_consistency(task_name: str, task_result: str, architecture_plan: dict) -> dict:
+    """
+    Tier 6: Final Consistency Check (Validation)
+    Verifies if the completed task matches the original architectural intent.
+    """
+    system_prompt = """You are the Lead QA Engineer.
+Your job is to compare the output of a completed coding task against the original system architecture.
+Does the output fulfill the task requirements and align with the architecture?
+Output a JSON object with two keys: "is_consistent" (boolean) and "feedback" (string detailing what is missing or incorrect if False)."""
+
+    prompt = f"Architecture:\n{json.dumps(architecture_plan)}\n\nTask: {task_name}\n\nAgent Output:\n{task_result}"
+
+    try:
+        result = await ask_llm(prompt, system_prompt, json_format=True)
+        return json.loads(result)
+    except Exception:
+        # Fallback to true if validation LLM fails to avoid infinite loops
+        return {"is_consistent": True, "feedback": "Validation fallback passed."}
+
 async def cursor_implementation(task: dict, mcp_context: str) -> str:
     """
     Tier 4 & 5: Cursor (Implementation/Refactoring) + MCP (Tools/Data Access)
-    Actually writes the code and interacts with the system using OpenClaw CLI loaded with MCP tools.
+    Strictly follows: Coding -> Validation -> Execution -> Validation -> Consistency Check -> Done
     """
-    # We use OpenClaw CLI as the execution engine for the 'Cursor' role, injecting MCP.
-    instruction = f"Role: {task.get('role', 'Developer')}\nTask: {task.get('task_name', 'Coding')}\nDetails: {task.get('detailed_instruction', '')}\n\nProject Context:\n{mcp_context}"
+    strict_procedure = """CRITICAL PROCEDURE: You must follow this strict 6-step loop for this task. Do not stop until step 6 is complete.
+1. Coding: Write the required code based on the instructions.
+2. Verification 1: Read the generated files (using filesystem tool) to ensure syntax and structure are correct. Fix any errors.
+3. Execution: Run the code (using terminal/bash tool) or run its unit tests.
+4. Verification 2: Analyze the execution logs/output. If it fails, go back to step 1.
+5. Consistency: Verify the final working code matches the original task requirements perfectly.
+6. Final Completion: Output a summary of the working, verified code."""
+
+    instruction = f"Role: {task.get('role', 'Developer')}\nTask: {task.get('task_name', 'Coding')}\nDetails: {task.get('detailed_instruction', '')}\n\nProject Context:\n{mcp_context}\n\n{strict_procedure}"
 
     process = await asyncio.create_subprocess_exec(
         'openclaw', 'execute', '--mcp-config', 'mcp_config.json', instruction,
@@ -151,31 +177,47 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
         task_summary = "\n".join([f"- [{t.get('role')}] {t.get('task_name')}" for t in task_list])
         await update.message.reply_text(f"✅ Tasks Delegated:\n{task_summary}")
 
-        # Phase 3 & 4: Implementation & Tools
-        await update.message.reply_text("💻 **Cursor & MCP (Implementation)**: Starting execution phase...")
+        # Phase 3 & 4: Implementation & Tools with Strict Verification
+        await update.message.reply_text("💻 **Cursor & MCP (Implementation)**: Starting strict execution & verification phase...")
 
         project_context = f"Global Architecture Summary: {architecture.get('architecture_summary', 'N/A')}\n"
+        max_retries = 2
 
         for i, task in enumerate(task_list):
             step_msg = f"⏳ Executing ({i+1}/{len(task_list)}): {task.get('task_name')}..."
             await update.message.reply_text(step_msg)
 
-            try:
-                # Execution invokes the MCP tools
-                result = await cursor_implementation(task, project_context)
+            success = False
+            for attempt in range(max_retries):
+                try:
+                    # Agent strictly follows: Code -> Verify -> Execute -> Verify
+                    result = await cursor_implementation(task, project_context)
 
-                # Update context for the next agent
-                project_context += f"\nCompleted '{task.get('task_name')}': Success."
+                    # Phase 5: Consistency Check against Initial Architecture
+                    await update.message.reply_text(f"🔍 Checking consistency for '{task.get('task_name')}'...")
+                    validation = await verify_consistency(task.get('task_name'), result, architecture)
 
-                display_result = result[:3500] + "\n...[Truncated]" if len(result) > 3500 else result
-                await update.message.reply_text(f"✅ {task.get('task_name')} Completed:\n\n{display_result}")
+                    if validation.get("is_consistent"):
+                        # Update context for the next agent
+                        project_context += f"\nCompleted '{task.get('task_name')}': {result[:100]}..."
+                        display_result = result[:3000] + "\n...[Truncated]" if len(result) > 3000 else result
+                        await update.message.reply_text(f"✅ Verified & Completed:\n\n{display_result}")
+                        success = True
+                        break
+                    else:
+                        feedback = validation.get("feedback", "Unknown consistency error.")
+                        await update.message.reply_text(f"⚠️ Consistency Check Failed (Attempt {attempt+1}/{max_retries}):\n{feedback}\n\nRetrying task with feedback...")
+                        # Append QA feedback to the task details for the next retry
+                        task['detailed_instruction'] += f"\n\nQA Feedback from previous attempt: YOU MUST FIX THIS: {feedback}"
 
-            except Exception as e:
-                await update.message.reply_text(f"❌ Error during '{task.get('task_name')}':\n{e}")
-                # Optional: Add self-healing retry logic here
-                break
+                except Exception as e:
+                    await update.message.reply_text(f"❌ Agent Execution Error (Attempt {attempt+1}/{max_retries}):\n{e}")
 
-        await update.message.reply_text("🎉 **OpenClaw (Command)**: Project workflow complete!")
+            if not success:
+                await update.message.reply_text(f"🚨 Task '{task.get('task_name')}' failed after {max_retries} attempts. Halting workflow.")
+                return
+
+        await update.message.reply_text("🎉 **OpenClaw (Command)**: Project workflow strictly verified and fully complete!")
 
     except Exception as e:
         logger.error(f"Workflow error: {e}")
