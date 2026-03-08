@@ -1,6 +1,51 @@
 version: '3.8'
 
 services:
+  # vLLM Instance 1: Exaone 4.0 32b on RTX 3090 (24GB VRAM)
+  # Uses device 0. Requires quantization (e.g., AWQ/GPTQ) to fit 32b in 24GB VRAM.
+  vllm-exaone-32b:
+    image: vllm/vllm-openai:latest
+    container_name: vllm_exaone_32b
+    runtime: nvidia
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    # Note: Replace the model below with an AWQ/GPTQ quantized 32b model when available.
+    # The --quantization awq flag was removed here because the placeholder model isn't AWQ.
+    # Add it back if your 32b model is AWQ/GPTQ quantized.
+    command: >
+      --model "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct"
+      --gpu-memory-utilization 0.95
+      --max-model-len 4096
+      --port 8000
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    restart: unless-stopped
+
+  # vLLM Instance 2: Exaone 1.2b on RTX 5060ti (16GB VRAM)
+  # Uses device 1.
+  # Note on "5 instances": Running 5 separate instances on one GPU wastes VRAM on duplicated model weights.
+  # A single vLLM instance efficiently handles many concurrent requests (batching), which is structurally superior.
+  vllm-exaone-1_2b:
+    image: vllm/vllm-openai:latest
+    container_name: vllm_exaone_1_2b
+    runtime: nvidia
+    ports:
+      - "8002:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=1
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    command: >
+      --model "LGAI-EXAONE/EXAONE-1.2B"
+      --gpu-memory-utilization 0.90
+      --max-model-len 4096
+      --port 8000
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    restart: unless-stopped
+
   # LiteLLM: Standardizes all API calls to the OpenAI format
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
