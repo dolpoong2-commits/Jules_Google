@@ -45,9 +45,10 @@ async def handle_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Note: Running LLM agents can take time. In a real production bot,
         # you'd run this asynchronously or in a task queue to avoid blocking the bot.
         # For this setup, we use asyncio.create_subprocess_exec to securely pass arguments
+        # We explicitly inject the MCP configuration file
 
         process = await asyncio.create_subprocess_exec(
-            'openclaw', 'execute', task,
+            'openclaw', 'execute', '--mcp-config', 'mcp_config.json', task,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
