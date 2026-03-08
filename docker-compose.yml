@@ -12,11 +12,9 @@ services:
     environment:
       - CUDA_VISIBLE_DEVICES=0
       - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
-    # Note: Replace the model below with an AWQ/GPTQ quantized 32b model when available.
-    # The --quantization awq flag was removed here because the placeholder model isn't AWQ.
-    # Add it back if your 32b model is AWQ/GPTQ quantized.
     command: >
-      --model "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct"
+      --model "LGAI-EXAONE/EXAONE-3.0-32B-Instruct-AWQ"
+      --quantization awq
       --gpu-memory-utilization 0.95
       --max-model-len 4096
       --port 8000

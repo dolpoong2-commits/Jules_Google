@@ -1,7 +1,7 @@
 model_list:
   - model_name: exaone-32b
     litellm_params:
-      model: openai/LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct # Adjust to the correct 32b HF repo when released
+      model: openai/LGAI-EXAONE/EXAONE-3.0-32B-Instruct-AWQ
       api_base: http://vllm-exaone-32b:8000/v1
       api_key: sk-dummy-key
       rpm: 1000
