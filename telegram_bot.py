@@ -2,7 +2,6 @@ import os
 import asyncio
 import json
 import logging
-import subprocess
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import litellm
@@ -17,61 +16,92 @@ logger = logging.getLogger(__name__)
 # Security: Only allow commands from the authorized user
 AUTHORIZED_USER_ID = int(os.environ.get("TELEGRAM_USER_ID", "0"))
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    user_id = update.effective_user.id
-    if user_id != AUTHORIZED_USER_ID:
-        await update.message.reply_text("Unauthorized user.")
-        return
+# LLM Configuration (using the local LiteLLM proxy routing to Exaone-32B)
+LLM_MODEL = "openai/exaone-32b"
+LLM_API_BASE = "http://localhost:4000/v1"
+LLM_API_KEY = "sk-1234"
 
-    await update.message.reply_text(
-        "Hello! I am your Local LLM Agent Manager.\n"
-        "Send me coding tasks, and I will dispatch them to OpenClaw / Antigravity via NadirClaw/LiteLLM on this machine.\n\n"
-        "Example: `Create a Python script that scrapes Hacker News.`"
-    )
+async def ask_llm(prompt: str, system_prompt: str, json_format: bool = False) -> str:
+    """Helper function to call the local LLM."""
+    try:
+        kwargs = {
+            "model": LLM_MODEL,
+            "api_base": LLM_API_BASE,
+            "api_key": LLM_API_KEY,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ]
+        }
+        if json_format:
+            kwargs["response_format"] = {"type": "json_object"}
 
-async def generate_plan(task_description: str) -> list[str]:
-    """Uses LiteLLM to break down a complex prompt into sequential, iterative sub-tasks."""
-    # We use the local litellm proxy to call the 32B model.
-    # It acts as a project manager to avoid context limits.
-    prompt = f"""You are an expert AI software architect.
-Break down the following complex user request into a sequence of small, manageable coding steps.
-Your output MUST be a valid JSON list of strings. Each string is a distinct instruction for a coding agent.
-Example for 'Make a todo app': ["Initialize a Node.js project", "Create the Express server", "Create a basic HTML frontend"]
+        response = await litellm.acompletion(**kwargs)
+        content = response.choices[0].message.content
 
-User Request: {task_description}
+        # Clean up Markdown JSON blocks
+        if json_format:
+            content = content.strip()
+            if content.startswith("```json"):
+                content = content[7:-3].strip()
+            elif content.startswith("```"):
+                content = content[3:-3].strip()
 
-Return ONLY the raw JSON list."""
+        return content
+    except Exception as e:
+        logger.error(f"LLM call failed: {e}")
+        raise e
+
+# --- 5-Tier Agent Roles ---
+
+async def antigravity_planning(task_description: str) -> dict:
+    """
+    Tier 2: AntiGravity (Planning/Structuring)
+    Responsible for software architecture, tech stack selection, and overall system design.
+    """
+    system_prompt = """You are AntiGravity, the Chief System Architect.
+Your role is to analyze the user's software request and design a robust, scalable system architecture.
+You DO NOT write code. You define the structure, tech stack, DB schema, and high-level components.
+Output your architecture as a JSON object with keys: "architecture_summary", "tech_stack", "components", "database_schema"."""
 
     try:
-        response = await litellm.acompletion(
-            model="openai/exaone-32b", # LiteLLM alias
-            api_base="http://localhost:4000/v1", # LiteLLM Proxy
-            api_key="sk-1234",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
-        )
-        plan_str = response.choices[0].message.content
+        result = await ask_llm(task_description, system_prompt, json_format=True)
+        return json.loads(result)
+    except Exception:
+        return {"architecture_summary": "Fallback architecture plan due to error."}
 
-        # Strip markdown blocks if the LLM wrapped the JSON
-        if plan_str.startswith("```json"):
-            plan_str = plan_str.strip("```json").strip("```").strip()
-        elif plan_str.startswith("```"):
-            plan_str = plan_str.strip("```").strip()
+async def opengoat_delegation(architecture_plan: dict) -> list[dict]:
+    """
+    Tier 3: OpenGoat (Role Delegation & Task Breakdown)
+    Breaks down the AntiGravity architecture into actionable, atomic tasks assigned to specific roles.
+    """
+    system_prompt = """You are OpenGoat, the Agile Project Manager.
+Based on the provided system architecture, break the project down into atomic coding tasks.
+Assign each task to a specific developer role (e.g., 'Frontend', 'Backend', 'Database').
+Output a JSON list of objects. Each object must have: 'role', 'task_name', 'detailed_instruction'.
+Example: [{"role": "Backend", "task_name": "Setup Express Server", "detailed_instruction": "Create server.js and install express"}]"""
 
-        return json.loads(plan_str)
-    except Exception as e:
-        logger.error(f"Planning failed: {e}. Falling back to single step.")
-        return [task_description]
+    prompt = f"System Architecture:\n{json.dumps(architecture_plan, indent=2)}\n\nGenerate the atomic task list."
 
-async def execute_subtask(subtask: str, context_message: str = "") -> str:
-    """Executes a single subtask using OpenClaw."""
-    full_prompt = subtask
-    if context_message:
-        full_prompt = f"Context from previous steps:\n{context_message}\n\nCurrent Task:\n{subtask}"
+    try:
+        result = await ask_llm(prompt, system_prompt, json_format=True)
+        tasks = json.loads(result)
+        if isinstance(tasks, dict) and 'tasks' in tasks:
+            return tasks['tasks'] # Handle cases where LLM wraps it in a dict
+        return tasks if isinstance(tasks, list) else []
+    except Exception:
+        return [{"role": "General", "task_name": "Implement architecture", "detailed_instruction": "Follow standard practices."}]
+
+async def cursor_implementation(task: dict, mcp_context: str) -> str:
+    """
+    Tier 4 & 5: Cursor (Implementation/Refactoring) + MCP (Tools/Data Access)
+    Actually writes the code and interacts with the system using OpenClaw CLI loaded with MCP tools.
+    """
+    # We use OpenClaw CLI as the execution engine for the 'Cursor' role, injecting MCP.
+    instruction = f"Role: {task.get('role', 'Developer')}\nTask: {task.get('task_name', 'Coding')}\nDetails: {task.get('detailed_instruction', '')}\n\nProject Context:\n{mcp_context}"
 
     process = await asyncio.create_subprocess_exec(
-        'openclaw', 'execute', '--mcp-config', 'mcp_config.json', full_prompt,
+        'openclaw', 'execute', '--mcp-config', 'mcp_config.json', instruction,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
@@ -80,67 +110,88 @@ async def execute_subtask(subtask: str, context_message: str = "") -> str:
     if process.returncode == 0:
         return stdout.decode('utf-8')
     else:
-        raise Exception(f"Subtask failed:\n{stderr.decode('utf-8')}")
+        raise Exception(f"Implementation failed:\n{stderr.decode('utf-8')}")
 
-async def handle_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Process a natural language task, break it down iteratively, and pass it to OpenClaw."""
+
+# --- Telegram Bot Handlers ---
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    if update.effective_user.id != AUTHORIZED_USER_ID: return
+    await update.message.reply_text("👋 OpenClaw Orchestrator Ready.\nSend me a complex project description.")
+
+async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Tier 1: OpenClaw (Reception/Command)
+    The entry point that receives the user request and directs the entire flow.
+    """
     user_id = update.effective_user.id
-    if user_id != AUTHORIZED_USER_ID:
-        logger.warning(f"Unauthorized access attempt by user {user_id}")
-        return
+    if user_id != AUTHORIZED_USER_ID: return
 
-    task = update.message.text
-    await update.message.reply_text("🤔 Planning... Breaking down the request to avoid context limits.")
+    user_request = update.message.text
+    await update.message.reply_text("🦅 **OpenClaw (Command)**: Request received. Initiating multi-agent workflow...")
 
     try:
-        plan = await generate_plan(task)
+        # Phase 1: Planning
+        await update.message.reply_text("🌌 **AntiGravity (Planning)**: Designing system architecture and structure...")
+        architecture = await antigravity_planning(user_request)
 
-        plan_summary = "\n".join([f"{i+1}. {step}" for i, step in enumerate(plan)])
-        await update.message.reply_text(f"✅ Generated Plan:\n\n{plan_summary}\n\nDispatching to OpenClaw iteratively...")
+        arch_summary = json.dumps(architecture, indent=2)
+        if len(arch_summary) > 3000: arch_summary = arch_summary[:3000] + "..."
+        await update.message.reply_text(f"✅ Architecture Designed:\n```json\n{arch_summary}\n```", parse_mode='Markdown')
 
-        # Execute iteratively
-        accumulated_context = ""
-        for i, subtask in enumerate(plan):
-            await update.message.reply_text(f"⏳ Executing Step {i+1}/{len(plan)}:\n{subtask}")
+        # Phase 2: Breakdown & Delegation
+        await update.message.reply_text("🐐 **OpenGoat (Delegation)**: Breaking down architecture into assigned tasks...")
+        task_list = await opengoat_delegation(architecture)
 
-            result = await execute_subtask(subtask, accumulated_context)
+        if not task_list:
+            await update.message.reply_text("❌ OpenGoat failed to generate tasks.")
+            return
 
-            # Truncate output for telegram
-            display_result = result
-            if len(display_result) > 4000:
-                display_result = display_result[:4000] + "\n...[Output truncated]"
+        task_summary = "\n".join([f"- [{t.get('role')}] {t.get('task_name')}" for t in task_list])
+        await update.message.reply_text(f"✅ Tasks Delegated:\n{task_summary}")
 
-            await update.message.reply_text(f"✅ Step {i+1} completed:\n\n{display_result}")
+        # Phase 3 & 4: Implementation & Tools
+        await update.message.reply_text("💻 **Cursor & MCP (Implementation)**: Starting execution phase...")
 
-            # Save short summary for next step context (to prevent context blooming)
-            # In a real setup, we might ask the LLM to summarize `result`
-            accumulated_context += f"\n- Completed: {subtask}"
+        project_context = f"Global Architecture Summary: {architecture.get('architecture_summary', 'N/A')}\n"
 
-        await update.message.reply_text("🎉 All steps completed successfully!")
+        for i, task in enumerate(task_list):
+            step_msg = f"⏳ Executing ({i+1}/{len(task_list)}): {task.get('task_name')}..."
+            await update.message.reply_text(step_msg)
+
+            try:
+                # Execution invokes the MCP tools
+                result = await cursor_implementation(task, project_context)
+
+                # Update context for the next agent
+                project_context += f"\nCompleted '{task.get('task_name')}': Success."
+
+                display_result = result[:3500] + "\n...[Truncated]" if len(result) > 3500 else result
+                await update.message.reply_text(f"✅ {task.get('task_name')} Completed:\n\n{display_result}")
+
+            except Exception as e:
+                await update.message.reply_text(f"❌ Error during '{task.get('task_name')}':\n{e}")
+                # Optional: Add self-healing retry logic here
+                break
+
+        await update.message.reply_text("🎉 **OpenClaw (Command)**: Project workflow complete!")
 
     except Exception as e:
-        logger.error(f"Error during execution: {e}")
-        await update.message.reply_text(f"An error occurred: {e}")
+        logger.error(f"Workflow error: {e}")
+        await update.message.reply_text(f"🚨 Critical failure in workflow: {e}")
 
 def main() -> None:
-    """Start the bot."""
-    # Get the token from environment variable
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
-        logger.error("TELEGRAM_BOT_TOKEN environment variable not set.")
+        logger.error("TELEGRAM_BOT_TOKEN not set.")
         return
 
-    # Create the Application and pass it your bot's token.
     application = Application.builder().token(token).build()
-
-    # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, openclaw_reception))
 
-    # on non command i.e message - process the task
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_task))
-
-    # Run the bot until the user presses Ctrl-C
-    logger.info("Starting bot...")
+    logger.info("Starting OpenClaw Multi-Agent Orchestrator...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
