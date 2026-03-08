@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # LiteLLM: Standardizes all API calls to the OpenAI format
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-1234}
+      - DATABASE_URL=postgresql://agent_user:agent_pass@postgres:5432/agent_db
+    command: [ "--config", "/app/config.yaml", "--port", "4000" ]
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # NadirClaw: Acts as an intelligent router/proxy
+  nadirclaw:
+    image: ghcr.io/doramirdor/nadirclaw:latest
+    container_name: nadirclaw
+    ports:
+      - "8080:8080"
+    environment:
+      - OPENAI_BASE_URL=http://litellm:4000
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY:-sk-1234}
+      - CHEAP_MODEL=exaone-1.2b
+      - PREMIUM_MODEL=exaone-32b
+    depends_on:
+      - litellm
+    restart: unless-stopped
+
+  # PostgreSQL: Database for LiteLLM, Agent Memory, and Tool integration
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: agent_pass
+      POSTGRES_DB: agent_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # SearXNG: Private web search for MCP DuckDuckGo/SearXNG tools
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8081/
+    restart: unless-stopped
+
+volumes:
+  pgdata:
