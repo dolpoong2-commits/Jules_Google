@@ -22,7 +22,7 @@ def main():
     # Define available Heavy Models (GPU 0 - RTX 3090 24GB)
     heavy_models = [
         {"id": "exaone-32b-awq", "name": "Exaone 32B (4-bit AWQ)", "repo": "LGAI-EXAONE/EXAONE-3.0-32B-Instruct-AWQ", "desc": "Requires AWQ quantization", "quant": "awq", "max_len": 4096},
-        {"id": "gpt-oss-20b", "name": "GPT-OSS 20B", "repo": "gpt-oss-repo/20b-instruct", "desc": "Native FP16, fits in 24GB", "quant": None, "max_len": 4096},
+        {"id": "gpt-neox-20b", "name": "GPT-NeoX 20B", "repo": "EleutherAI/gpt-neox-20b", "desc": "Native FP16, fits in 24GB", "quant": None, "max_len": 4096},
         {"id": "qwen2.5-32b-awq", "name": "Qwen 2.5 32B (4-bit AWQ)", "repo": "Qwen/Qwen2.5-32B-Instruct-AWQ", "desc": "Alternative 32B", "quant": "awq", "max_len": 8192},
         {"id": "custom", "name": "Custom Model", "repo": "", "desc": "Enter your own HuggingFace Repo ID", "quant": None, "max_len": 4096}
     ]
@@ -85,6 +85,13 @@ def main():
 
     litellm_models = []
 
+    # VRAM Warning
+    print("\n⚠️ Note on VRAM estimation:")
+    print("The simple fractional estimation used here does NOT account for KV cache sizes,")
+    print("context length blooming, tokenizer overhead, or specific scheduler requirements.")
+    print("If you experience OOM (Out of Memory) errors during operation, you must reduce")
+    print("the number of worker models or manually tweak max-model-len and gpu-memory-utilization.\n")
+
     # Heavy Model (GPU 0)
     heavy_service = {
         'image': 'vllm/vllm-openai:latest',
@@ -92,7 +99,7 @@ def main():
         'runtime': 'nvidia',
         'ports': ['8000:8000'],
         'environment': ['CUDA_VISIBLE_DEVICES=0', 'HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}'],
-        'volumes': ['~/.cache/huggingface:/root/.cache/huggingface'],
+        'volumes': ['${HOME}/.cache/huggingface:/root/.cache/huggingface'],
         'restart': 'unless-stopped',
         'command': f'--model {selected_heavy["repo"]} --gpu-memory-utilization 0.95 --max-model-len {selected_heavy["max_len"]} --port 8000'
     }
@@ -114,6 +121,8 @@ def main():
 
     # Light Models (GPU 1)
     base_port = 8001
+    worker_endpoints = []
+
     for idx, light in enumerate(selected_lights):
         service_name = f'vllm-light-{idx}'
         port = base_port + idx
@@ -124,7 +133,7 @@ def main():
             'runtime': 'nvidia',
             'ports': [f'{port}:8000'],
             'environment': ['CUDA_VISIBLE_DEVICES=1', 'HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}'],
-            'volumes': ['~/.cache/huggingface:/root/.cache/huggingface'],
+            'volumes': ['${HOME}/.cache/huggingface:/root/.cache/huggingface'],
             'restart': 'unless-stopped',
             'command': f'--model {light["repo"]} --gpu-memory-utilization 0.90 --max-model-len 4096 --port 8000'
         }
@@ -138,12 +147,19 @@ def main():
             light_service['command'] = light_service['command'].replace('0.90', f'{fraction:.2f}')
 
         compose_dict['services'][service_name] = light_service
+        worker_endpoints.append({
+            "url": f"http://{service_name}:8000/v1",
+            "repo": light["repo"]
+        })
 
+    # Bind all light models under the unified 'worker-model' alias.
+    # LiteLLM will load balance via Round Robin among all these endpoints.
+    for endpoint_info in worker_endpoints:
         litellm_models.append({
-            'model_name': f'worker-{light["id"]}',
+            'model_name': 'worker-model',
             'litellm_params': {
-                'model': f'openai/{light["repo"]}',
-                'api_base': f'http://{service_name}:8000/v1',
+                'model': f'openai/{endpoint_info["repo"]}', # MUST match the underlying vLLM model repo
+                'api_base': endpoint_info["url"],
                 'api_key': 'sk-dummy-key',
                 'rpm': 5000
             }

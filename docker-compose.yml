@@ -32,8 +32,8 @@ services:
     environment:
       - OPENAI_BASE_URL=http://litellm:4000
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY:-sk-1234}
-      - CHEAP_MODEL=exaone-1.2b
-      - PREMIUM_MODEL=exaone-32b
+      - CHEAP_MODEL=worker-model
+      - PREMIUM_MODEL=planner-model
     depends_on:
       - litellm
     restart: unless-stopped

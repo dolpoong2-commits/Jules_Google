@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 workflow_state.json
 *.log
+docker-compose.models.yml
+litellm_config.yaml
