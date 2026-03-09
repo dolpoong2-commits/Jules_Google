@@ -11,10 +11,11 @@ except Exception:
     NVIDIA_SMI_AVAILABLE = False
 
 class LLMClient:
-    def __init__(self, base_url: str = "http://localhost:8000/v1", api_key: str = "EMPTY", model: str = "Exaone-4.0-32b"):
-        self.base_url = base_url
-        self.api_key = api_key
-        self.model = model
+    def __init__(self, base_url: str = None, api_key: str = None, model: str = None):
+        # Fallback to environment variables if not provided
+        self.base_url = base_url or os.getenv("LLM_BASE_URL", "http://localhost:8000/v1")
+        self.api_key = api_key or os.getenv("LLM_API_KEY", "EMPTY")
+        self.model = model or os.getenv("LLM_MODEL_NAME", "Exaone-4.0-32b")
         self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
 
     def get_vram_usage(self) -> Dict[str, Any]:
@@ -83,4 +84,11 @@ class LLMClient:
             )
             return response.choices[0].message.content
         except Exception as e:
-            return f"Error connecting to local LLM: {str(e)}"
+            # Provide more context based on the error
+            error_msg = str(e)
+            if "Connection error" in error_msg or "Failed to connect" in error_msg:
+                return f"**[연결 오류]** 로컬 LLM 서버({self.base_url})에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.\n\n상세 오류: `{error_msg}`"
+            elif "model" in error_msg.lower():
+                return f"**[모델 오류]** 모델 '{self.model}'을(를) 찾을 수 없거나 로드되지 않았습니다.\n\n상세 오류: `{error_msg}`"
+            else:
+                return f"**[응답 오류]** LLM 처리 중 문제가 발생했습니다.\n\n상세 오류: `{error_msg}`"

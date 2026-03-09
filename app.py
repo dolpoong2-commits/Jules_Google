@@ -6,6 +6,9 @@ from rag import RAGManager
 from llm import LLMClient
 from dotenv import load_dotenv
 
+# Load environment variables (if any)
+load_dotenv()
+
 # Initialize session state for UI if not present
 if "rag_manager" not in st.session_state:
     st.session_state.rag_manager = RAGManager()
@@ -14,8 +17,13 @@ if "current_session_id" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Load environment variables (if any)
-load_dotenv()
+# Initialize LLM settings globally so they are available on all pages
+if "llm_base_url" not in st.session_state:
+    st.session_state.llm_base_url = os.getenv("LLM_BASE_URL", "http://localhost:8000/v1")
+if "llm_model_name" not in st.session_state:
+    st.session_state.llm_model_name = os.getenv("LLM_MODEL_NAME", "Exaone-4.0-32b")
+if "llm_api_key" not in st.session_state:
+    st.session_state.llm_api_key = os.getenv("LLM_API_KEY", "EMPTY")
 
 st.set_page_config(page_title="Local LLM RAG & Fine-Tune Hub", layout="wide", page_icon="🧠")
 
@@ -35,27 +43,29 @@ def show_dashboard():
         # Tooltips using help parameter
         base_url = st.text_input(
             "Local LLM Base URL",
-            value=st.session_state.get("llm_base_url", "http://localhost:8000/v1"),
+            value=st.session_state.llm_base_url,
             help="vLLM, Ollama 등 로컬 LLM 서버의 주소를 입력하세요. (예: http://localhost:8000/v1)"
         )
         st.session_state.llm_base_url = base_url
 
         model_name = st.text_input(
             "Model Name",
-            value=st.session_state.get("llm_model_name", "Exaone-4.0-32b"),
+            value=st.session_state.llm_model_name,
             help="로컬 서버에서 구동 중인 모델의 이름을 정확히 입력하세요."
         )
         st.session_state.llm_model_name = model_name
 
         api_key = st.text_input(
             "API Key",
-            value=st.session_state.get("llm_api_key", "EMPTY"), type="password",
+            value=st.session_state.llm_api_key, type="password",
             help="대부분의 로컬 서버는 API Key를 요구하지 않지만, 필요한 경우 입력하세요."
         )
         st.session_state.llm_api_key = api_key
 
     with col2:
         st.subheader("시스템 및 VRAM 상태")
+        st.caption("ℹ️ 현재 UI가 실행 중인 로컬 머신의 GPU 상태입니다.")
+
         client = LLMClient(base_url=base_url, api_key=api_key, model=model_name)
         vram_info = client.get_vram_usage()
 
@@ -178,20 +188,23 @@ def show_chat():
 
         # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": response})
-        # Save to DB
-        db.save_message(st.session_state.current_session_id, "assistant", response)
 
-        # Ingest assistant message to RAG history
-        st.session_state.rag_manager.ingest_chat_message(
-            session_id=st.session_state.current_session_id,
-            role="user",
-            content=prompt
-        )
-        st.session_state.rag_manager.ingest_chat_message(
-            session_id=st.session_state.current_session_id,
-            role="assistant",
-            content=response
-        )
+        # Only save to DB and RAG if the response is not an error message
+        if not response.startswith("**["):
+            # Save to DB
+            db.save_message(st.session_state.current_session_id, "assistant", response)
+
+            # Ingest to RAG history
+            st.session_state.rag_manager.ingest_chat_message(
+                session_id=st.session_state.current_session_id,
+                role="user",
+                content=prompt
+            )
+            st.session_state.rag_manager.ingest_chat_message(
+                session_id=st.session_state.current_session_id,
+                role="assistant",
+                content=response
+            )
 
 def show_document_management():
     st.title("📂 문서 및 데이터 시트 관리 (Documents)")
