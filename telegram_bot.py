@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 # Security: Only allow commands from the authorized user
 AUTHORIZED_USER_ID = int(os.environ.get("TELEGRAM_USER_ID", "0"))
 
-# LLM Configuration (using the local LiteLLM proxy routing to Exaone-32B)
-LLM_MODEL = "openai/exaone-32b"
+# LLM Configuration (using the local LiteLLM proxy routing to the user-selected heavy planner model)
+LLM_MODEL = "openai/planner-model"
 LLM_API_BASE = "http://localhost:4000/v1"
 LLM_API_KEY = "sk-1234"
 
