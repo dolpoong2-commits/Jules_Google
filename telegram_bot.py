@@ -6,6 +6,10 @@ import time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import litellm
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -35,12 +39,15 @@ def update_state(phase: str, status: str, total_tasks: int = 0, completed_tasks:
         logger.error(f"Failed to update state file: {e}")
 
 # Security: Only allow commands from the authorized user
-AUTHORIZED_USER_ID = int(os.environ.get("TELEGRAM_USER_ID", "0"))
+try:
+    AUTHORIZED_USER_ID = int(os.environ.get("TELEGRAM_USER_ID", "0"))
+except ValueError:
+    AUTHORIZED_USER_ID = 0
 
 # LLM Configuration (using the local LiteLLM proxy routing to the user-selected heavy planner model)
 LLM_MODEL = "openai/planner-model"
-LLM_API_BASE = "http://localhost:4000/v1"
-LLM_API_KEY = "sk-1234"
+LLM_API_BASE = os.environ.get("LLM_API_BASE", "http://localhost:4000/v1")
+LLM_API_KEY = os.environ.get("LITELLM_MASTER_KEY", "sk-local-secure-key")
 
 async def ask_llm(prompt: str, system_prompt: str, json_format: bool = False) -> str:
     """Helper function to call the local LLM."""
@@ -147,8 +154,11 @@ async def cursor_implementation(task: dict, mcp_context: str) -> str:
 
     instruction = f"Role: {task.get('role', 'Developer')}\nTask: {task.get('task_name', 'Coding')}\nDetails: {task.get('detailed_instruction', '')}\n\nProject Context:\n{mcp_context}\n\n{strict_procedure}"
 
+    # Abstracted CLI Execution: This allows easy substitution if OpenClaw's CLI changes
+    cli_command = ['openclaw', 'execute', '--mcp-config', 'mcp_config.json', instruction]
+
     process = await asyncio.create_subprocess_exec(
-        'openclaw', 'execute', '--mcp-config', 'mcp_config.json', instruction,
+        *cli_command,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
@@ -187,7 +197,8 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         arch_summary = json.dumps(architecture, indent=2)
         if len(arch_summary) > 3000: arch_summary = arch_summary[:3000] + "..."
-        await update.message.reply_text(f"✅ Architecture Designed:\n```json\n{arch_summary}\n```", parse_mode='Markdown')
+        # Note: Removing parse_mode='Markdown' to prevent MarkdownV2 parse errors caused by JSON characters like `_` or `*`
+        await update.message.reply_text(f"✅ Architecture Designed:\n\n{arch_summary}")
 
         # Phase 2: Breakdown & Delegation
         update_state("Delegation (OpenGoat)", "Breaking down architecture into tasks...")

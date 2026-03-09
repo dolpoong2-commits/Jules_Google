@@ -6,10 +6,21 @@ set -e
 
 echo "Starting Local LLM Agent Environment Setup..."
 
-# 1. Update system packages
+# 1. Update system packages & Install Docker
 echo "Updating system..."
 sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y curl wget git build-essential docker.io docker-compose python3 python3-pip python3-venv sqlite3 postgresql postgresql-contrib
+sudo apt-get install -y curl wget git build-essential docker.io docker-compose-v2 python3 python3-pip python3-venv sqlite3 postgresql postgresql-contrib
+
+# 1.5 Install NVIDIA Container Toolkit (Required for vLLM)
+echo "Installing NVIDIA Container Toolkit..."
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
 
 # 2. Install NVM (Node Version Manager) & Node.js 22
 echo "Installing NVM & Node.js 22..."
@@ -41,8 +52,8 @@ echo "Setting up Python environment..."
 python3 -m venv ~/llm-agent-env
 source ~/llm-agent-env/bin/activate
 
-echo "Installing Python dependencies (LiteLLM, python-telegram-bot, mcp, flask)..."
-pip install litellm python-telegram-bot mcp pydantic requests flask pyyaml
+echo "Installing Python dependencies (LiteLLM, python-telegram-bot, mcp, flask, python-dotenv)..."
+pip install litellm python-telegram-bot mcp pydantic requests flask pyyaml python-dotenv
 # Placeholder for NadirClaw which acts as a proxy
 # If NadirClaw is pip installable from github:
 # pip install git+https://github.com/doramirdor/NadirClaw.git
@@ -60,5 +71,12 @@ else
 fi
 
 echo "Setup complete!"
-echo "Please reload your shell or run: source ~/.bashrc"
-echo "Then activate your python env: source ~/llm-agent-env/bin/activate"
+echo "--------------------------------------------------------"
+echo "⚠️ IMPORTANT NEXT STEPS:"
+echo "1. Copy .env.example to .env and fill in your tokens:"
+echo "   cp .env.example .env"
+echo "   nano .env"
+echo "2. Reload your shell or run: source ~/.bashrc"
+echo "3. Activate your python env: source ~/llm-agent-env/bin/activate"
+echo "4. Configure your models: python configure_models.py"
+echo "--------------------------------------------------------"

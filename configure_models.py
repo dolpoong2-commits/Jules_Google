@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 import yaml
 import sys
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def prompt_choice(prompt, options):
     print(f"\n{prompt}")
@@ -108,13 +113,15 @@ def main():
 
     compose_dict['services']['vllm-heavy'] = heavy_service
 
+    master_key = os.environ.get("LITELLM_MASTER_KEY", "sk-local-secure-key")
+
     # Heavy model is always mapped to the "planner-model" alias in LiteLLM
     litellm_models.append({
         'model_name': 'planner-model',
         'litellm_params': {
             'model': f'openai/{selected_heavy["repo"]}',
             'api_base': 'http://vllm-heavy:8000/v1',
-            'api_key': 'sk-dummy-key',
+            'api_key': master_key,
             'rpm': 1000
         }
     })
@@ -160,10 +167,45 @@ def main():
             'litellm_params': {
                 'model': f'openai/{endpoint_info["repo"]}', # MUST match the underlying vLLM model repo
                 'api_base': endpoint_info["url"],
-                'api_key': 'sk-dummy-key',
+                'api_key': master_key,
                 'rpm': 5000
             }
         })
+
+    # --- Generate MCP Config ---
+    workspace_dir = os.environ.get("WORKSPACE_DIR", "/home/ubuntu/workspace")
+    agent_db_path = os.environ.get("AGENT_DB_PATH", "/home/ubuntu/agent.db")
+    github_token = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+    db_user = os.environ.get("POSTGRES_USER", "agent_user")
+    db_pass = os.environ.get("POSTGRES_PASSWORD", "agent_pass")
+
+    # URL for local MCP running on host machine connecting to docker port 5432
+    local_db_url = f"postgresql://{db_user}:{db_pass}@localhost:5432/agent_db"
+
+    # URL for LiteLLM running inside docker network connecting to postgres container
+    docker_db_url = f"postgresql://{db_user}:{db_pass}@postgres:5432/agent_db"
+
+    mcp_config = {
+        "mcpServers": {
+            "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", workspace_dir]},
+            "terminal": {"command": "npx", "args": ["-y", "mcp-server-terminal"]},
+            "git": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-git"]},
+            "sequential-thinking": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]},
+            "memory": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"]},
+            "context": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-context"]},
+            "github": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"], "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": github_token}},
+            "sqlite": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sqlite", "--db-path", agent_db_path]},
+            "postgres": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres", "--connection-string", local_db_url]},
+            "duckduckgo": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-duckduckgo"]},
+            "searxng": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-searxng", "--url", "http://localhost:8081"]},
+            "arxiv": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-arxiv"]},
+            "docker": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-docker"]}
+        }
+    }
+
+    import json
+    with open('mcp_config.json', 'w') as f:
+        json.dump(mcp_config, f, indent=2)
 
     # Write files
     with open('docker-compose.models.yml', 'w') as f:
@@ -176,8 +218,8 @@ def main():
             'enable_pre_call_checks': True
         },
         'general_settings': {
-            'master_key': 'sk-1234',
-            'database_url': 'postgresql://agent_user:agent_pass@postgres:5432/agent_db'
+            'master_key': master_key,
+            'database_url': docker_db_url
         }
     }
 
@@ -185,7 +227,7 @@ def main():
         yaml.dump(litellm_config, f, sort_keys=False, default_flow_style=False)
 
     print("\n✅ Configuration generated successfully!")
-    print("Files created/updated: docker-compose.models.yml, litellm_config.yaml")
+    print("Files created/updated: docker-compose.models.yml, litellm_config.yaml, mcp_config.json")
     print("\nTo start the infrastructure, run:")
     print("docker-compose -f docker-compose.yml -f docker-compose.models.yml up -d")
 

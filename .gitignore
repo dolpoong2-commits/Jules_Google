@@ -4,3 +4,4 @@ workflow_state.json
 *.log
 docker-compose.models.yml
 litellm_config.yaml
+mcp_config.json
