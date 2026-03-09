@@ -14,6 +14,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+STATE_FILE = "workflow_state.json"
+
+def update_state(phase: str, status: str, total_tasks: int = 0, completed_tasks: int = 0, current_task: str = "", start_time: float = None, eta: float = None):
+    """Write current execution state to a JSON file for the real-time Flask dashboard."""
+    state = {
+        "phase": phase,
+        "status": status,
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "current_task": current_task,
+        "start_time": start_time,
+        "eta_seconds": eta,
+        "timestamp": time.time()
+    }
+    try:
+        with open(STATE_FILE, "w") as f:
+            json.dump(state, f)
+    except Exception as e:
+        logger.error(f"Failed to update state file: {e}")
+
 # Security: Only allow commands from the authorized user
 AUTHORIZED_USER_ID = int(os.environ.get("TELEGRAM_USER_ID", "0"))
 
@@ -156,10 +176,12 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id != AUTHORIZED_USER_ID: return
 
     user_request = update.message.text
+    update_state("Reception", "Received user request.")
     await update.message.reply_text("🦅 **OpenClaw (Command)**: Request received. Initiating multi-agent workflow...")
 
     try:
         # Phase 1: Planning
+        update_state("Planning (AntiGravity)", "Designing system architecture...")
         await update.message.reply_text("🌌 **AntiGravity (Planning)**: Designing system architecture and structure...")
         architecture = await antigravity_planning(user_request)
 
@@ -168,10 +190,12 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ Architecture Designed:\n```json\n{arch_summary}\n```", parse_mode='Markdown')
 
         # Phase 2: Breakdown & Delegation
+        update_state("Delegation (OpenGoat)", "Breaking down architecture into tasks...")
         await update.message.reply_text("🐐 **OpenGoat (Delegation)**: Breaking down architecture into assigned tasks...")
         task_list = await opengoat_delegation(architecture)
 
         if not task_list:
+            update_state("Error", "OpenGoat failed to generate tasks.")
             await update.message.reply_text("❌ OpenGoat failed to generate tasks.")
             return
 
@@ -179,6 +203,7 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ Tasks Delegated:\n{task_summary}")
 
         # Phase 3 & 4: Implementation & Tools with Strict Verification
+        update_state("Implementation (Cursor+MCP)", "Starting strict execution phase...", len(task_list), 0)
         await update.message.reply_text("💻 **Cursor & MCP (Implementation)**: Starting strict execution & verification phase...")
 
         project_context = f"Global Architecture Summary: {architecture.get('architecture_summary', 'N/A')}\n"
@@ -198,9 +223,12 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 eta_seconds = avg_time_per_task * (total_tasks - i)
                 eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
             else:
+                eta_seconds = None
                 eta_str = "Calculating..."
 
             elapsed_str = f"{int(elapsed_total // 60)}m {int(elapsed_total % 60)}s"
+
+            update_state("Implementation (Cursor+MCP)", f"Executing: {task.get('task_name')}", total_tasks, i, task.get('task_name'), workflow_start_time, eta_seconds)
 
             progress_msg = (
                 f"📊 **Progress Update** ({current_step}/{total_tasks})\n"
@@ -219,6 +247,7 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     result = await cursor_implementation(task, project_context)
 
                     # Phase 5: Consistency Check against Initial Architecture
+                    update_state("QA (Consistency Check)", f"Verifying '{task.get('task_name')}' against plan...", total_tasks, i, task.get('task_name'), workflow_start_time, eta_seconds)
                     await update.message.reply_text(f"🔍 Checking consistency for '{task.get('task_name')}'...")
                     validation = await verify_consistency(task.get('task_name'), result, architecture)
 
@@ -239,11 +268,15 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     await update.message.reply_text(f"❌ Agent Execution Error (Attempt {attempt+1}/{max_retries}):\n{e}")
 
             if not success:
+                update_state("Error", f"Task '{task.get('task_name')}' failed permanently.", total_tasks, i)
                 await update.message.reply_text(f"🚨 Task '{task.get('task_name')}' failed after {max_retries} attempts. Halting workflow.")
                 return
 
         total_time = time.time() - workflow_start_time
         final_time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s"
+
+        update_state("Complete", "Project workflow fully verified and complete.", total_tasks, total_tasks, "All Done", workflow_start_time, 0)
+
         await update.message.reply_text(
             f"🎉 **OpenClaw (Command)**: Project workflow strictly verified and fully complete!\n\n"
             f"✅ **Total Tasks Completed:** {total_tasks}\n"
@@ -251,6 +284,7 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
     except Exception as e:
+        update_state("Error", f"Critical failure: {e}")
         logger.error(f"Workflow error: {e}")
         await update.message.reply_text(f"🚨 Critical failure in workflow: {e}")
 

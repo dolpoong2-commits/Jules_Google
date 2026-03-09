@@ -41,8 +41,8 @@ echo "Setting up Python environment..."
 python3 -m venv ~/llm-agent-env
 source ~/llm-agent-env/bin/activate
 
-echo "Installing Python dependencies (LiteLLM, python-telegram-bot, mcp)..."
-pip install litellm python-telegram-bot mcp pydantic requests
+echo "Installing Python dependencies (LiteLLM, python-telegram-bot, mcp, flask)..."
+pip install litellm python-telegram-bot mcp pydantic requests flask pyyaml
 # Placeholder for NadirClaw which acts as a proxy
 # If NadirClaw is pip installable from github:
 # pip install git+https://github.com/doramirdor/NadirClaw.git
