@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+*.db
+chat_history.db
+chroma_db/
+uploads/
+*.jsonl
+dataset_export.jsonl
+.streamlit/
