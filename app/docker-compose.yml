@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  llm-dashboard:
+    build: .
+    container_name: llm-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    # Use extra_hosts to allow container to communicate with host machine services (like vLLM or OpenClaw)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
