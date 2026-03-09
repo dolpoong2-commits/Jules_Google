@@ -1,0 +1,18 @@
+# Environments
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data directories (do not commit DBs or vector data)
+/data/
+/data/qdrant/
+/data/memory.db
+*.db
+*.sqlite3
+
+# OS specific
+.DS_Store
+Thumbs.db
