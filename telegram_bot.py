@@ -2,6 +2,7 @@ import os
 import asyncio
 import json
 import logging
+import time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import litellm
@@ -183,10 +184,34 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
         project_context = f"Global Architecture Summary: {architecture.get('architecture_summary', 'N/A')}\n"
         max_retries = 2
 
-        for i, task in enumerate(task_list):
-            step_msg = f"⏳ Executing ({i+1}/{len(task_list)}): {task.get('task_name')}..."
-            await update.message.reply_text(step_msg)
+        total_tasks = len(task_list)
+        workflow_start_time = time.time()
 
+        for i, task in enumerate(task_list):
+            # Calculate metrics
+            current_step = i + 1
+            elapsed_total = time.time() - workflow_start_time
+
+            # Simple ETA estimation based on average time per completed task
+            if i > 0:
+                avg_time_per_task = elapsed_total / i
+                eta_seconds = avg_time_per_task * (total_tasks - i)
+                eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
+            else:
+                eta_str = "Calculating..."
+
+            elapsed_str = f"{int(elapsed_total // 60)}m {int(elapsed_total % 60)}s"
+
+            progress_msg = (
+                f"📊 **Progress Update** ({current_step}/{total_tasks})\n"
+                f"⏱️ **Elapsed Time:** {elapsed_str}\n"
+                f"⏳ **Estimated Remaining:** {eta_str}\n\n"
+                f"▶️ **Now Executing:** [{task.get('role')}] {task.get('task_name')}...\n"
+                f"*(Coding ➡️ Execution ➡️ QA Loop)*"
+            )
+            await update.message.reply_text(progress_msg)
+
+            task_start_time = time.time()
             success = False
             for attempt in range(max_retries):
                 try:
@@ -217,7 +242,13 @@ async def openclaw_reception(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await update.message.reply_text(f"🚨 Task '{task.get('task_name')}' failed after {max_retries} attempts. Halting workflow.")
                 return
 
-        await update.message.reply_text("🎉 **OpenClaw (Command)**: Project workflow strictly verified and fully complete!")
+        total_time = time.time() - workflow_start_time
+        final_time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s"
+        await update.message.reply_text(
+            f"🎉 **OpenClaw (Command)**: Project workflow strictly verified and fully complete!\n\n"
+            f"✅ **Total Tasks Completed:** {total_tasks}\n"
+            f"⏱️ **Total Execution Time:** {final_time_str}"
+        )
 
     except Exception as e:
         logger.error(f"Workflow error: {e}")
