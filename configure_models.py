@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+import yaml
+import sys
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+def prompt_choice(prompt, options):
+    print(f"\n{prompt}")
+    for idx, opt in enumerate(options, 1):
+        print(f"  {idx}. {opt['name']} ({opt['desc']})")
+
+    while True:
+        try:
+            choice = int(input("Select an option number: "))
+            if 1 <= choice <= len(options):
+                return options[choice - 1]
+        except ValueError:
+            pass
+        print("Invalid choice, please try again.")
+
+def main():
+    print("=== Local LLM Inference Configurator ===")
+
+    # Define available Heavy Models (GPU 0 - RTX 3090 24GB)
+    heavy_models = [
+        {"id": "exaone-32b-awq", "name": "Exaone 32B (4-bit AWQ)", "repo": "LGAI-EXAONE/EXAONE-3.0-32B-Instruct-AWQ", "desc": "Requires AWQ quantization", "quant": "awq", "max_len": 4096},
+        {"id": "gpt-neox-20b", "name": "GPT-NeoX 20B", "repo": "EleutherAI/gpt-neox-20b", "desc": "Native FP16, fits in 24GB", "quant": None, "max_len": 4096},
+        {"id": "qwen2.5-32b-awq", "name": "Qwen 2.5 32B (4-bit AWQ)", "repo": "Qwen/Qwen2.5-32B-Instruct-AWQ", "desc": "Alternative 32B", "quant": "awq", "max_len": 8192},
+        {"id": "custom", "name": "Custom Model", "repo": "", "desc": "Enter your own HuggingFace Repo ID", "quant": None, "max_len": 4096}
+    ]
+
+    # Define available Light Models (GPU 1 - RTX 5060ti 16GB)
+    light_models = [
+        {"id": "exaone-1.2b", "name": "Exaone 1.2B", "repo": "LGAI-EXAONE/EXAONE-1.2B", "desc": "Very fast, small footprint", "vram_est": 3},
+        {"id": "llama3.2-3b", "name": "Llama 3.2 3B", "repo": "meta-llama/Llama-3.2-3B-Instruct", "desc": "Great logic for its size", "vram_est": 7},
+        {"id": "qwen2.5-7b", "name": "Qwen 2.5 7B", "repo": "Qwen/Qwen2.5-7B-Instruct", "desc": "Strong coding 7B", "vram_est": 15},
+        {"id": "custom", "name": "Custom Model", "repo": "", "desc": "Enter your own", "vram_est": 8}
+    ]
+
+    print("\n--- Step 1: Select Planner Model for GPU 0 (RTX 3090 24GB) ---")
+    selected_heavy = prompt_choice("Choose the Heavy Inference model for Planning/QA:", heavy_models)
+
+    if selected_heavy['id'] == 'custom':
+        selected_heavy['repo'] = input("Enter HuggingFace Repo ID (e.g., meta-llama/Llama-3.1-8B): ")
+        quant = input("Does it need AWQ/GPTQ quantization to fit in 24GB? (y/N): ").lower()
+        selected_heavy['quant'] = "awq" if quant == 'y' else None
+
+    print("\n--- Step 2: Select Worker Models for GPU 1 (RTX 5060ti 16GB) ---")
+    print("You can load multiple smaller models on GPU 1 (up to ~15GB total VRAM usage).")
+    selected_lights = []
+    current_vram = 0
+
+    while True:
+        if current_vram >= 15:
+            print(f"Warning: Estimated VRAM usage ({current_vram}GB) is close to the 16GB limit.")
+            break
+
+        print(f"\nCurrent GPU 1 VRAM Est: {current_vram}GB / 16GB")
+        add_more = input("Add a worker model to GPU 1? (y/n): ").lower()
+        if add_more != 'y': break
+
+        light = prompt_choice("Choose a Light Inference model for execution tasks:", light_models)
+
+        # Clone dict to allow multiple identical custom selections
+        selected_model = dict(light)
+
+        if selected_model['id'] == 'custom':
+            selected_model['repo'] = input("Enter HuggingFace Repo ID: ")
+            selected_model['id'] = selected_model['repo'].split('/')[-1].lower()
+            try:
+                selected_model['vram_est'] = int(input("Estimated VRAM required in GB (e.g., 8): "))
+            except ValueError:
+                selected_model['vram_est'] = 8
+
+        selected_lights.append(selected_model)
+        current_vram += selected_model['vram_est']
+
+    if not selected_lights:
+        print("At least one worker model is required. Defaulting to Exaone 1.2B.")
+        selected_lights.append(light_models[0])
+
+    # --- Generate docker-compose.models.yml ---
+    compose_dict = {
+        'version': '3.8',
+        'services': {}
+    }
+
+    litellm_models = []
+
+    # VRAM Warning
+    print("\n⚠️ Note on VRAM estimation:")
+    print("The simple fractional estimation used here does NOT account for KV cache sizes,")
+    print("context length blooming, tokenizer overhead, or specific scheduler requirements.")
+    print("If you experience OOM (Out of Memory) errors during operation, you must reduce")
+    print("the number of worker models or manually tweak max-model-len and gpu-memory-utilization.\n")
+
+    # Heavy Model (GPU 0)
+    heavy_service = {
+        'image': 'vllm/vllm-openai:latest',
+        'container_name': f'vllm_heavy_{selected_heavy["id"]}',
+        'runtime': 'nvidia',
+        'ports': ['8000:8000'],
+        'environment': ['CUDA_VISIBLE_DEVICES=0', 'HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}'],
+        'volumes': ['${HOME}/.cache/huggingface:/root/.cache/huggingface'],
+        'restart': 'unless-stopped',
+        'command': f'--model {selected_heavy["repo"]} --gpu-memory-utilization 0.95 --max-model-len {selected_heavy["max_len"]} --port 8000'
+    }
+    if selected_heavy["quant"]:
+        heavy_service['command'] += f' --quantization {selected_heavy["quant"]}'
+
+    compose_dict['services']['vllm-heavy'] = heavy_service
+
+    master_key = os.environ.get("LITELLM_MASTER_KEY", "sk-local-secure-key")
+
+    # Heavy model is always mapped to the "planner-model" alias in LiteLLM
+    litellm_models.append({
+        'model_name': 'planner-model',
+        'litellm_params': {
+            'model': f'openai/{selected_heavy["repo"]}',
+            'api_base': 'http://vllm-heavy:8000/v1',
+            'api_key': master_key,
+            'rpm': 1000
+        }
+    })
+
+    # Light Models (GPU 1)
+    base_port = 8001
+    worker_endpoints = []
+
+    for idx, light in enumerate(selected_lights):
+        service_name = f'vllm-light-{idx}'
+        port = base_port + idx
+
+        light_service = {
+            'image': 'vllm/vllm-openai:latest',
+            'container_name': f'vllm_light_{light["id"]}_{idx}',
+            'runtime': 'nvidia',
+            'ports': [f'{port}:8000'],
+            'environment': ['CUDA_VISIBLE_DEVICES=1', 'HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}'],
+            'volumes': ['${HOME}/.cache/huggingface:/root/.cache/huggingface'],
+            'restart': 'unless-stopped',
+            'command': f'--model {light["repo"]} --gpu-memory-utilization 0.90 --max-model-len 4096 --port 8000'
+        }
+
+        # If loading multiple models on one GPU, VLLM needs help with memory chunking,
+        # but for simplicity we rely on gpu-memory-utilization.
+        if len(selected_lights) > 1:
+            # Distribute VRAM fraction based on estimate
+            fraction = light['vram_est'] / 16.0
+            fraction = max(0.1, min(0.95, fraction)) # clamp
+            light_service['command'] = light_service['command'].replace('0.90', f'{fraction:.2f}')
+
+        compose_dict['services'][service_name] = light_service
+        worker_endpoints.append({
+            "url": f"http://{service_name}:8000/v1",
+            "repo": light["repo"]
+        })
+
+    # Bind all light models under the unified 'worker-model' alias.
+    # LiteLLM will load balance via Round Robin among all these endpoints.
+    for endpoint_info in worker_endpoints:
+        litellm_models.append({
+            'model_name': 'worker-model',
+            'litellm_params': {
+                'model': f'openai/{endpoint_info["repo"]}', # MUST match the underlying vLLM model repo
+                'api_base': endpoint_info["url"],
+                'api_key': master_key,
+                'rpm': 5000
+            }
+        })
+
+    # --- Generate MCP Config ---
+    workspace_dir = os.environ.get("WORKSPACE_DIR", "/home/ubuntu/workspace")
+    agent_db_path = os.environ.get("AGENT_DB_PATH", "/home/ubuntu/agent.db")
+    github_token = os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN", "")
+    db_user = os.environ.get("POSTGRES_USER", "agent_user")
+    db_pass = os.environ.get("POSTGRES_PASSWORD", "agent_pass")
+
+    # URL for local MCP running on host machine connecting to docker port 5432
+    local_db_url = f"postgresql://{db_user}:{db_pass}@localhost:5432/agent_db"
+
+    # URL for LiteLLM running inside docker network connecting to postgres container
+    docker_db_url = f"postgresql://{db_user}:{db_pass}@postgres:5432/agent_db"
+
+    mcp_config = {
+        "mcpServers": {
+            "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", workspace_dir]},
+            "terminal": {"command": "npx", "args": ["-y", "mcp-server-terminal"]},
+            "git": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-git"]},
+            "sequential-thinking": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]},
+            "memory": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"]},
+            "context": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-context"]},
+            "github": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"], "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": github_token}},
+            "sqlite": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sqlite", "--db-path", agent_db_path]},
+            "postgres": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres", "--connection-string", local_db_url]},
+            "duckduckgo": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-duckduckgo"]},
+            "searxng": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-searxng", "--url", "http://localhost:8081"]},
+            "arxiv": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-arxiv"]},
+            "docker": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-docker"]}
+        }
+    }
+
+    import json
+    with open('mcp_config.json', 'w') as f:
+        json.dump(mcp_config, f, indent=2)
+
+    # Write files
+    with open('docker-compose.models.yml', 'w') as f:
+        yaml.dump(compose_dict, f, sort_keys=False, default_flow_style=False)
+
+    litellm_config = {
+        'model_list': litellm_models,
+        'router_settings': {
+            'routing_strategy': 'usage-based-routing',
+            'enable_pre_call_checks': True
+        },
+        'general_settings': {
+            'master_key': master_key,
+            'database_url': docker_db_url
+        }
+    }
+
+    with open('litellm_config.yaml', 'w') as f:
+        yaml.dump(litellm_config, f, sort_keys=False, default_flow_style=False)
+
+    print("\n✅ Configuration generated successfully!")
+    print("Files created/updated: docker-compose.models.yml, litellm_config.yaml, mcp_config.json")
+    print("\nTo start the infrastructure, run:")
+    print("docker-compose -f docker-compose.yml -f docker-compose.models.yml up -d")
+
+if __name__ == "__main__":
+    main()

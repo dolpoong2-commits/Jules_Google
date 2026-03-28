@@ -1,0 +1,74 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Local LLM Multi-Agent System Dashboard</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+            .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            h2 { color: #2980b9; margin-top: 0; }
+            .gpu-card { border-left: 5px solid #e74c3c; }
+            .gpu-card.gpu1 { border-left-color: #27ae60; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background-color: #f8f9fa; }
+            .badge { display: inline-block; padding: 5px 10px; background: #34495e; color: white; border-radius: 15px; font-size: 0.85em; margin: 2px; }
+            .flow-box { background: #ecf0f1; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #8e44ad; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🤖 Local LLM Multi-Agent Dashboard</h1>
+
+            <div class="grid">
+                <!-- GPU 0 -->
+                <div class="card gpu-card">
+                    <h2>🖥️ GPU 0 (RTX 3090 - 24GB)</h2>
+                    <p><strong>Role:</strong> Heavy Inference (Planning, QA, Structuring)</p>
+                    <table>
+                        <tr><th>Container</th><th>Model</th><th>Port</th><th>VRAM Limit</th></tr>
+                        <tr><td>vllm-heavy</td><td>EXAONE-3.0-32B-Instruct-AWQ</td><td>8000</td><td>95.0%</td></tr>
+                    </table>
+                </div>
+
+                <!-- GPU 1 -->
+                <div class="card gpu-card gpu1">
+                    <h2>🖥️ GPU 1 (RTX 5060ti - 16GB)</h2>
+                    <p><strong>Role:</strong> Concurrent Worker Fleet (Execution, Tool Use)</p>
+                    <table>
+                        <tr><th>Container</th><th>Model</th><th>Port</th><th>VRAM Limit</th></tr>
+                        <tr><td>vllm-light-0</td><td>EXAONE-1.2B</td><td>8001</td><td>19.0%</td></tr><tr><td>vllm-light-1</td><td>EXAONE-1.2B</td><td>8002</td><td>19.0%</td></tr><tr><td>vllm-light-2</td><td>EXAONE-1.2B</td><td>8003</td><td>19.0%</td></tr><tr><td>vllm-light-3</td><td>EXAONE-1.2B</td><td>8004</td><td>19.0%</td></tr><tr><td>vllm-light-4</td><td>EXAONE-1.2B</td><td>8005</td><td>19.0%</td></tr>
+                    </table>
+                </div>
+
+                <!-- 5-Tier Workflow -->
+                <div class="card">
+                    <h2>⚙️ 5-Tier Planner Workflow</h2>
+                    <div class="flow-box"><strong>Tier 1. OpenClaw:</strong> Telegram Command Reception</div>
+                    <div class="flow-box"><strong>Tier 2. AntiGravity:</strong> Architecture & Tech Stack Planning (GPU 0)</div>
+                    <div class="flow-box"><strong>Tier 3. OpenGoat:</strong> Role Delegation & Task Breakdown (GPU 0)</div>
+                    <div class="flow-box"><strong>Tier 4. Cursor:</strong> 6-Step Implementation Loop (GPU 1)</div>
+                    <div class="flow-box"><strong>Tier 5. MCP:</strong> Sandbox Tool Access</div>
+                    <div class="flow-box"><strong>Tier 6. QA Consistency:</strong> Validation against Tier 2 Plan (GPU 0)</div>
+                </div>
+
+                <!-- MCP Tools -->
+                <div class="card">
+                    <h2>🛠️ Connected MCP Tools</h2>
+                    <p>The Cursor implementation tier automatically injects the following tools into the OpenClaw agent:</p>
+                    <div>
+                        <span class="badge">filesystem</span><span class="badge">git</span><span class="badge">sequential-thinking</span><span class="badge">memory</span><span class="badge">context</span><span class="badge">github</span><span class="badge">sqlite</span><span class="badge">postgres</span><span class="badge">duckduckgo</span><span class="badge">searxng</span><span class="badge">arxiv</span><span class="badge">docker</span>
+                    </div>
+                    <h3 style="margin-top:20px; color:#2c3e50;">LiteLLM Proxy Endpoints</h3>
+                    <p><strong>Planner Alias:</strong> <code>openai/planner-model</code></p>
+                    <p><strong>Worker Aliases:</strong> <code>openai/worker-exaone-1.2b</code> (x5)</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
